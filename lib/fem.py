@@ -57,7 +57,7 @@ class BasisIterator:
             raise StopIteration
         self.current = self.current + 1
         return self.basis[self.current-1]
-    
+
 class BasisFunction:
     """Basis element in piecwise linear function space.
 
@@ -111,24 +111,35 @@ class BasisFunction:
             return -r/(basis.r[i+1]-basis.r[i]) + basis.r[i+1]/(basis.r[i+1]-basis.r[i])
         return 0
 
-    def inner(self, function, N=100 ):
+    def inner(self, function=None):
         """Compute inner product of BasisFunction with function.
         Args:
-          function (impl .__call__): function that can be invoked with 
-            lvalue = function(). 
-          N (int): number of subdivision in riemann integral
+          function (BasisFunction): Inner product between self and function.
+            if None then assume function(x)==1
 
         Returns:
           (float): int_0^basis.r_h self(r)*function(r) r**2 dr
         """
+        r = self.basis.r
+        i = self.index
+        if function == None:
+            return -(r[i-1]**2+r[i]**2+r[i]*r[i+1]+r[i+1]**2+r[i-1]*(r[i]+r[i+1]))*(r[i-1]-r[i+1])/12
+        if type(function) == BasisFunction:
+            if function.index == self.index:
+                return -(r[i-1]-r[i+1])*(r[i-1]**2+3*r[i]**2+2*r[i]*r[i+1]+r[i+1]**2+r[i-1]*(2*r[i]+r[i+1]))/30
+            if abs(function.index - self.index) == 1:
+                pass
 
-        R = np.linspace(self.basis.r[self.index-1], 
-                        self.basis.r[self.index+1], N)
+        R, dr = np.linspace(self.basis.r[self.index-1], 
+                            self.basis.r[self.index+1], N, retstep=True)
         F1 = self(R)
         F2 = function(R)
-        return np.sum(F1*F2*R**2)*(self.basis.r[self.index+1]-self.basis.r[self.index-1])/len(R)
+        return np.sum(F1*F2*R**2)*(self.basis.r[self.index+1]-self.basis.r[self.index-1])/N/dr
 
     def grad(self):
         """Returns gradient of self"""
-        return BasisFunction(self.basis, self.index, True)
+        return GradBasisFunction(self)
     
+
+class GradBasisFunction(BasisFunction):
+    pass
