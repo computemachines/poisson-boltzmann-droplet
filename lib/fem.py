@@ -58,7 +58,7 @@ class BasisIterator:
         self.current = self.current + 1
         return self.basis[self.current-1]
 
-class BasisFunction:
+class BasisFunction(object):
     """Basis element in piecwise linear function space.
 
     Args:
@@ -111,6 +111,23 @@ class BasisFunction:
             return -r/(basis.r[i+1]-basis.r[i]) + basis.r[i+1]/(basis.r[i+1]-basis.r[i])
         return 0
 
+    def inner_old(self, function, N=100 ):
+        """Compute inner product of BasisFunction with function.
+        Args:
+          function (impl .__call__): function that can be invoked with 
+            lvalue = function(). 
+          N (int): number of subdivision in riemann integral
+
+        Returns:
+          (float): int_0^basis.r_h self(r)*function(r) r**2 dr
+        """
+
+        R = np.linspace(self.basis.r[self.index-1], 
+                        self.basis.r[self.index+1], N)
+        F1 = self(R)
+        F2 = function(R)
+        return np.sum(F1*F2*R**2)*(self.basis.r[self.index+1]-self.basis.r[self.index-1])/len(R)
+
     def inner(self, function=None):
         """Compute inner product of BasisFunction with function.
         Args:
@@ -123,23 +140,33 @@ class BasisFunction:
         r = self.basis.r
         i = self.index
         if function == None:
-            return -(r[i-1]**2+r[i]**2+r[i]*r[i+1]+r[i+1]**2+r[i-1]*(r[i]+r[i+1]))*(r[i-1]-r[i+1])/12
-        if type(function) == BasisFunction:
-            if function.index == self.index:
-                return -(r[i-1]-r[i+1])*(r[i-1]**2+3*r[i]**2+2*r[i]*r[i+1]+r[i+1]**2+r[i-1]*(2*r[i]+r[i+1]))/30
-            if abs(function.index - self.index) == 1:
-                pass
+            return -(r[i-1]**2+r[i]**2+r[i]*r[i+1]+r[i+1]**2+
+                     r[i-1]*(r[i]+r[i+1]))*(r[i-1]-r[i+1])/12
 
-        R, dr = np.linspace(self.basis.r[self.index-1], 
-                            self.basis.r[self.index+1], N, retstep=True)
-        F1 = self(R)
-        F2 = function(R)
-        return np.sum(F1*F2*R**2)*(self.basis.r[self.index+1]-self.basis.r[self.index-1])/N/dr
+        if not function.isGrad:
+
+            if function.index == self.index:
+                return -(r[i-1]-r[i+1]) \
+                        *(r[i-1]**2+3*r[i]**2+2*r[i]*r[i+1]+r[i+1]**2+
+                         r[i-1]*(2*r[i]+r[i+1]))/30
+
+            if abs(function.index - self.index) == 1:
+                i = min(self.index, function.index)
+                return (r[i+1]-r[i]) \
+                       *(3*r[i]**2+4*r[i]*r[i+1]+3*r[i+1]**2)/60
+            return 0
+
+        elif function.isGrad and self.isGrad:
+            if function.index == self.index:
+                return -(r[i-1]**2+r[i-1]*r[i]+r[i]**2)/(3*r[i-1]-3*r[i]) \
+                       -(r[i]**2+r[i]*r[i+1]+r[i+1]**2)/(3*r[i]-3*r[i+1])
+            if abs(function.index - self.index) == 1:
+                i = min(self.index, function.index)
+                return (r[i]**2+r[i]*r[i+1]+r[i+1]**2)/(3*r[i]-3*r[i+1])
 
     def grad(self):
         """Returns gradient of self"""
-        return GradBasisFunction(self)
+        return BasisFunction(self.basis, self.index, True)
     
-
 class GradBasisFunction(BasisFunction):
     pass

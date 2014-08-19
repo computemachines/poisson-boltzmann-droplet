@@ -8,41 +8,61 @@ import sys
 sys.path.insert(0, 'lib')
 from fem import *
 
-F = 0.1
-u_0 = -2
+F = 0.174
+u_0 = 2
 
 # distict basisfunctions along radii
-h = 1001
-phi = Basis(100, h)
 
+plt.rc('text', usetex=True)
 np.set_printoptions(precision=2, linewidth=300, threshold=10000)
 
-def computeA(F):
+def computeA(phi, F):
     """Generate forcing matrix from phi and F"""
     A = np.zeros((2*len(phi)-1, 2*len(phi)-1))
-    for i in range(1, 2*len(phi)):
-        for j in range(1, 2*len(phi)):
+    for i in range(2*len(phi)-1):
+        for j in range(2*len(phi)-1):
             if abs(i-j) <= 1:
-                A[j-1][i-1] = phi[i].grad().inner(phi[j].grad()) + F*phi[i].inner(phi[j])
+                A[j][i] = phi[i+1].grad().inner(phi[j+1].grad()) + F*phi[i+1].inner(phi[j+1])
     return np.matrix(A)
 
-def computeV(A, Fu_0):
+def computeV(phi, Fu_0):
     V = np.zeros((2*len(phi)-1))
-    for i in range(1, 2*len(phi)):
-        V[i-1] = phi[i].inner(lambda x: -Fu_0)
+    for i in range(2*len(phi)-1):
+        V[i] = Fu_0*phi[i+1].inner()
     return np.matrix(V).transpose()
 
-A = computeA(F)
-V = computeV(A, F*u_0)
 
-U = la.solve(A,V) + u_0
-r = np.linspace(0, 100, 10000)
-R = np.linspace(-100, 100, 2*len(phi)-1)
+
+def PB(h):
+    h = int(h)
+    if h%2 ==0:
+        h = h+1
+
+    print h
+    phi = Basis(100, h)
+
+    A = computeA(phi, F)
+    V = computeV(phi, F*u_0)
+
+    U = la.solve(A,V) - u_0
+    return U
 
 def plot(U):
-    fig, ax1 = plt.subplots()
-    ax1.plot(R,U)
-    plt.show()
+    if type(U)!=list:
+        U = [U]
+    fig = plt.figure(figsize=(5.5, 6), dpi=300, facecolor='w', edgecolor='k')
+    plt.ylim((-2, 0))
+    for u in U:
+        R = np.linspace(-100, 100, len(u))
+        plt.plot(R,u, 'k')
 
-plot(U)
+    plt.title("Linear Poisson Boltzmann Solution in Droplet")
+    plt.ylabel(r"$\bar\phi$")
+    plt.xlabel("r (nm)")
+#    plt.tight_layout()
+    fig.savefig('../reports/2014-08-15/images/plot.png', dpi=300)
+    
+#    plt.show()
+
+plot(PB(1000))
 
